@@ -29,9 +29,11 @@ int8_t *par[] = { &lensFactor, &proportion, &tranSpeed, &pan, &tilt,
                   &frontUpY, &backUpY, &frontDownY, &backDownY,
                   &frontUp, &backUp, &frontDown, &backDown };
 
-#define MU_CAMERA
+// #define MU_CAMERA
 // #define SENTRY1_CAMERA
 // #define TALL_TARGET
+#define IMAGE_TRANSMISSION1_CAMERA
+#define IMAGE_TRANSMISSION2_CAMERA
 
 #ifdef MU_CAMERA
 void muCameraSetup();
@@ -41,6 +43,41 @@ void read_MuCamera();
 #ifdef SENTRY1_CAMERA
 void sentry1CameraSetup();
 void read_Sentry1Camera();
+#endif
+
+#if defined(IMAGE_TRANSMISSION1_CAMERA) || defined(IMAGE_TRANSMISSION2_CAMERA)
+#include <SoftwareSerial.h>
+int bytesSent_cam1 = 0;
+int bytesSent_cam2 = 0;
+const char *wifiset_msg = "AT+WIFISET=Westgate,HarryPotter,STA\r\n";
+const int wifiset_msgLen = strlen(wifiset_msg);
+const char *wificon_msg = "AT+WIFICON=1\r\n";
+const int wificon_msgLen = strlen(wificon_msg);
+void imageTransmissionCameraWifiConfig(int, SoftwareSerial&);
+unsigned long previousMillis = 0;
+const long camConfigInterval = 2000;
+#ifdef IMAGE_TRANSMISSION1_CAMERA
+#define TX1_PIN 6
+#define RX1_PIN 7
+SoftwareSerial mySerialCameraOne(TX1_PIN, RX1_PIN);
+boolean configured_c1_step1 = false;
+boolean configured_c1_step2 = false;
+#endif
+#ifndef IMAGE_TRANSMISSION1_CAMERA
+boolean configured_c1_step1 = true;
+boolean configured_c1_step2 = true;
+#endif
+#ifdef IMAGE_TRANSMISSION2_CAMERA
+#define TX2_PIN 8
+#define RX2_PIN 9
+SoftwareSerial mySerialCameraTwo(TX2_PIN, RX2_PIN);
+boolean configured_c2_step1 = false;
+boolean configured_c2_step2 = false;
+#endif
+#ifndef IMAGE_TRANSMISSION2_CAMERA
+boolean configured_c2_step1 = true;
+boolean configured_c2_step2 = true;
+#endif
 #endif
 
 void cameraSetup() {
@@ -55,6 +92,12 @@ void cameraSetup() {
   lensFactor = 10;
   proportion = 20;
   sentry1CameraSetup();
+#endif
+#ifdef IMAGE_TRANSMISSION1_CAMERA 
+  mySerialCameraOne.begin(9600);
+#endif
+#ifdef IMAGE_TRANSMISSION2_CAMERA
+  mySerialCameraTwo.begin(9600);
 #endif
   fps = 0;
   loopTimer = millis();
@@ -176,6 +219,16 @@ void read_camera() {
 #endif
 #ifdef SENTRY1_CAMERA
   read_Sentry1Camera();
+#endif
+#ifdef IMAGE_TRANSMISSION1_CAMERA
+  if(!configured_c1_step2){
+    imageTransmissionCameraWifiConfig(1, mySerialCameraOne);
+  }
+#endif
+#ifdef IMAGE_TRANSMISSION2_CAMERA
+  if(!configured_c2_step2){
+    imageTransmissionCameraWifiConfig(2, mySerialCameraTwo);
+  }
 #endif
 }
 
@@ -365,4 +418,61 @@ void read_Sentry1Camera() {
   }
   // do something or delay some time
 }
+#endif
+
+#if defined(IMAGE_TRANSMISSION1_CAMERA) || defined(IMAGE_TRANSMISSION2_CAMERA)
+void imageTransmissionCameraWifiConfig(int camera, SoftwareSerial& serialCamera) {
+    unsigned long currentMillis = millis();
+    serialCamera.listen();
+    if (camera == 1) {
+      if ((currentMillis - previousMillis >= camConfigInterval) && configured_c1_step1 == false){
+        if (bytesSent_cam1 <= wifiset_msgLen) {
+          serialCamera.write(wifiset_msg[bytesSent_cam1]);
+          Serial.print(wifiset_msg[bytesSent_cam1]);
+          bytesSent_cam1++;
+        }
+        else {
+        bytesSent_cam1 = 0;
+        configured_c1_step1 = true;
+        }
+      }
+      else if ((currentMillis - previousMillis >= (2*camConfigInterval)) && configured_c1_step2 == false){
+        if (bytesSent_cam1 <= wificon_msgLen) {
+          serialCamera.write(wificon_msg[bytesSent_cam1]);
+          Serial.print(wificon_msg[bytesSent_cam1]);
+          bytesSent_cam1++;
+        }
+        else {
+        bytesSent_cam1 = 0;
+        configured_c1_step2 = true;
+        previousMillis = currentMillis;
+        }
+      }
+    }
+    else if (configured_c1_step2){
+      if ((currentMillis - previousMillis  >= camConfigInterval) && configured_c2_step1 == false){
+        if (bytesSent_cam2  <= wifiset_msgLen) {
+          serialCamera.write(wifiset_msg[bytesSent_cam2]);
+          Serial.print(wifiset_msg[bytesSent_cam2]);
+          bytesSent_cam2++;
+        }
+        else {
+          bytesSent_cam2 = 0;
+          configured_c2_step1 = true;
+         }
+      }
+      else if ((currentMillis - previousMillis >= (2*camConfigInterval)) && configured_c2_step2 == false){
+        if (bytesSent_cam2   <= wificon_msgLen) {
+          serialCamera.write(wificon_msg[bytesSent_cam2]);
+          Serial.print(wificon_msg[bytesSent_cam2]);
+          bytesSent_cam2++;
+         }
+        else {
+          bytesSent_cam2 = 0;
+          configured_c2_step2 = true;
+          }
+       }
+    }
+}
+
 #endif

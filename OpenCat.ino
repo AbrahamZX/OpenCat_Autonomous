@@ -65,7 +65,7 @@
 //#define DOUBLE_LIGHT  //for double light sensor
 // #define DOUBLE_INFRARED_DISTANCE  //for double infrared distance sensor
 // #define GESTURE  //for Gesture module
-// #define CAMERA  //for human body tracking or ball tracking using an intelligent camera
+#define CAMERA  //for human body tracking or ball tracking using an intelligent camera or image transmission using one or two intelligent cameras
 // You need to install https://github.com/mu-opensource/MuVisionSensor3 as a zip library in Arduino IDE.
 // Set the four dial switches on the camera as **v ^ v v** (the second switch dialed up to I2C) and connect the camera module to the I2C grove on NyBoard.
 // The battery should be turned on to drive the servos.
